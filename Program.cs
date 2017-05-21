@@ -5,7 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using GreenPipes;
 
 namespace StateMachineIssue
 {
@@ -21,17 +23,24 @@ namespace StateMachineIssue
             {
                 config.ReceiveEndpoint("queue", endpoint =>
                 {
-                    endpoint.StateMachineSaga(stateMachine, repository);
+                    endpoint.StateMachineSaga(stateMachine, repository, c=>
+                    {
+                        c.UseConcurrencyLimit(1);
+                    });
                 });
             });
 
             bus.Start();
 
-            bus.Publish(new InitEvent { EntityId = 1 }).Wait();
+            var rnd = new Random();
 
-            //Console.ReadLine();
-
-            bus.Publish(new FinalizeEvent { EntityId = 1 }).Wait();
+            while (true)
+            {
+                var id = rnd.Next();
+                bus.Publish(new InitEvent { EntityId = id }).Wait();
+                bus.Publish(new FinalizeEvent { EntityId = id }).Wait();
+                Console.ReadLine();
+            }
 
             Console.ReadLine();
 
@@ -65,8 +74,8 @@ namespace StateMachineIssue
             Initially(
                 When(Init)
                     .Then(InitInstance)
-                    .Then(LogMessage)
-                    .TransitionTo(Calculating),
+                    .TransitionTo(Calculating)
+                    .Then(LogMessage),
                 Ignore(Finalize));
 
             During(Calculating,
